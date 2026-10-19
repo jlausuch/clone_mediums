@@ -49,9 +49,11 @@ curl -sSf "$host/api/v1/products" | jq -r \
     def repl: split($old) | join($new);
     .Products[]
     | select(. as $p | $filters | to_entries | all(($p[.key] | tostring) == .value))
+    # The API only accepts a JSON body with settings as a {key: value} object
+    | {
+        distri, version: $new, flavor, arch,
+        settings: (.settings | map({(.key): (.value | repl)}) | add // {})
+      }
     | "openqa-cli api --apikey \"$APIKEY\" --apisecret \"$APISECRET\" " + ([
-        "--host", $host, "-X", "POST", "products",
-        "distri=\(.distri)", "version=\($new)", "flavor=\(.flavor)", "arch=\(.arch)"
-      ]
-      + [.settings[] | "settings[\(.key)]=\(.value | repl)"]
-      | @sh)'
+        "--host", $host, "-X", "POST", "products", "--json", "--data", tojson
+      ] | @sh)'
